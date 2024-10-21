@@ -1,0 +1,64 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: git-clone-build-war-docker-
+spec:
+  serviceAccountName: argo
+  entrypoint: build-war-and-docker
+  templates:
+  - name: build-war-and-docker
+    container:
+      image: udaydocker02/docker-maven-v5  
+      command: [sh, -c]
+      args:
+        - |
+          # Clone the repository
+          git clone https://github.com/greekgeekAW/devops-learn.git /tmp/repo && \
+          
+          # Change directory to the repo
+          cd /tmp/repo && \
+          
+
+          # Build the WAR file using Maven
+          mvn clean package && \
+
+          # Verify the WAR file is created
+          ls -la target/*.war && \
+
+          # Fetch the latest tag from Docker Hub 
+          latest_tag=$(curl -s "https://hub.docker.com/v2/repositories/udaydocker02/war-image/tags?page_size=1" | jq -r '.results[0].name') && \
+          
+          # Increment the tag
+          new_tag=$(echo $latest_tag | awk -F. -v OFS=. '{$NF += 1 ; print}') && \
+
+          # Build Docker image from the Dockerfile in the repo with new tag
+          docker build -t udaydocker02/war-image:$new_tag . && \
+  
+
+          # Log in to Docker Hub
+          echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin && \
+
+          # Push the Docker image to Docker Hub
+          docker push udaydocker02/war-image:latest
+          
+          #Print tag name
+          echo "New Docker image: udaydocker02/war-image:$new_tag"
+      volumeMounts:
+        - name: docker-sock
+          mountPath: /var/run/docker.sock
+      env:
+        - name: DOCKER_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: dockerhub-secret
+              key: username
+        - name: DOCKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: dockerhub-secret
+              key: password
+  volumes:
+    - name: docker-sock
+      hostPath:
+        path: /var/run/docker.sock
+
