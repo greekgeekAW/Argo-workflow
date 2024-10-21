@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Workflow
 metadata:
-  generateName: git-clone-build-war-docker-
+  Name: git-clone-build-war-docker-
 spec:
   serviceAccountName: argo
   entrypoint: build-war-and-docker
